@@ -114,6 +114,13 @@ effective DDoS attacks, even if the CIDRS record would fit in a single UDP
 packet. This means in effect that CIDRS records SHOULD NOT ever be sent using
 unencrypted DNS over UDP.
 
+A single CIDRS record SHOULD NOT have a single prefix that spans multiple ASNs
+to avoid operational brittleness and over-inclusion of global IP addresses
+that are likely to not be associated with the domain name or even
+outside the administrative control of the service using the domain 
+name. Advertising associated prefixes for a domain name that collectively
+span multiple ASNs should be accomplished by breaking the prefixes up
+to avoid this problem.
 
 # CIDRS record format
 
