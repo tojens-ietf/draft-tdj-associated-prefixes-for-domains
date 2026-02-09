@@ -45,10 +45,11 @@ for a domain name as part of the DNS query.
 
 It is common for services to be associated with domain names
 even if not every IP address used by the service are represented
-in A and AAAA records for the service's domain names. One example is
+in A and AAAA records for the service's domain names. One common example is
 teleconferencing, which often uses a media streaming protocol whose peer
 addresses are negotiated within a connection, such as the use of WebRTC.
-Another is QUIC's use of preferred addresses, defined in {{Section 9.6 of
+Another possible but less likely example is QUIC's use of preferred
+addresses, defined in {{Section 9.6 of
 ?RFC9000}}, which allows a server to migrate a client to another server IP
 address which may or may not have been resolvable from the domain name
 resolved to initiate the original connection.
@@ -71,18 +72,50 @@ TBD
 
 # Mechanism
 
+## Client Behavior
+
 When a client wishes to discover the IP prefixes that are associated with a
 given domain name, it SHOULD issue a SVCB query for the domain name (which it
 may already be doing for other reasons). If the "cidrs" key is present, then
 it SHOULD issue another query of type CIDRS to retrieve the associated IP
 prefixes.
 
-When a server wishes to provide the associated IP prefixes for a given name, it
-SHOULD create CIDRS records as well as a SVCB record with the "cidrs" key set.
-While the mechanism is simple, the Operational Considerations section contains
-further normative implementation guidance.
+Clients MAY choose to ignore claims of association by CIDRS records
+with prefixes shorter than a preconfigured minimum length per IP version to
+avoid attacks where a name maliciously claims association with IP address
+space it has no association with. This version of the text does not suggest
+defined values for minimum prefix lengths.
 
-## CIDRS record format
+## Server Behavior
+
+When a server wishes to provide the associated IP prefixes for a given name, it
+SHOULD create CIDRS records for the prefixes associated with the name as well as
+add a "cidrs" key to a new or existing SVCB record.
+
+Servers SHOULD avoid claiming very short prefixes in CIDRS records. It is not
+expected that a single domain name is legitimately associated with a short
+prefix. Associated IP addresses SHOULD be restricted to IP addresses a
+server reasonably expects a client to interact with for the functionality
+provided services using the domain name. For example, name owners
+SHOULD NOT create CIDRS records that include all IP ranges owned by a company
+for the company's primarily recognizable domain name (example-company.example.
+having a CIDRS record listing every IP address owned by Example Company would
+be inappropriate).
+
+When configuring the TTL of CIDRS and SVCB records, name owners SHOULD avoid
+SVCB records containing the "cidrs" key having a shorter TTL than the TTL of the
+CIDRS records themselves. This will avoid unnecessary follow-up CIDRS queries by
+clients which still have valid records. The TTL values of CIDRS records
+SHOULD NOT be any shorter than the expected lifetime of traffic flows of typical
+service usage.
+
+Servers SHOULD truncate responses to avoid creating risk of
+effective DDoS attacks, even if the CIDRS record would fit in a single UDP
+packet. This means in effect that CIDRS records SHOULD NOT ever be sent using
+unencrypted DNS over UDP.
+
+
+# CIDRS record format
 
 The CIDRS RR type is designed to convey an IP prefix, an associated port range,
 and a protocol number as defined in the Assigned Internet Protocol Numbers IANA
@@ -90,9 +123,21 @@ registry. The port range can be defined as 0-65535 and the protocol number as
 255 if these fields are not applicable for the record owner (because only the
 IP prefix is interesting).
 
-### Wire format
+## Wire format
 
-CIDRS RR data on the wire uses the following format (TODO: ASCII art of the fields below):
+CIDRS RR data on the wire uses the following format:
+
+                        1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |Family |  Rsvd | Prefix Length |            Prefix             |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               +
+   |          ... (variable, padded to an octet boundary)          |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |       Port Range Begin        |        Port Range End         |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |Protocol Number|
+   +-+-+-+-+-+-+-+-+
 
 - IP family (4 bits): indicates which version of the Internet Protocol the prefix belongs to
 
@@ -100,7 +145,7 @@ CIDRS RR data on the wire uses the following format (TODO: ASCII art of the fiel
 
 - Length of Prefix (8 bits): number of bits of the IP prefix.
 
-- Prefix (ceil(Length of Prefix / 8) bytes): the IP prefix itself. The length of this field is always an integer of bytes (begins and ends on octent boundaries) just large enough to contain a prefix of length equal to the Length of Prefix
+- Prefix (variable length): the IP prefix itself. The length of this field is always an integer of bytes (begins and ends on octet boundaries) just large enough to contain a prefix of length equal to the Length of Prefix
 
 - Port Range Begin (16 bits): the lowest port number in the included range
 
@@ -109,12 +154,12 @@ CIDRS RR data on the wire uses the following format (TODO: ASCII art of the fiel
 - Protocol Number (8 bits): a value from the Assigned Internet Protocol Numbers IANA registry (255 if no associated protocol should be defined)
 
 
-### Zone file format
+## Zone file format
 
-TODO: will do after the idea survives initial contact with the WG
+TODO
 
 
-### Justification for new RR type
+## Justification for new RR type
 
 Because the list of associated IP addresses for a given name is likely to be
 somewhat large, at least relative to the typical A, AAAA, and SVCB/HTTPS queries
@@ -125,7 +170,7 @@ services at associated IP addresses can authenticate a name (if the resulting
 protocol does not perform name verification).
 
 
-### Verification
+## Verification
 
 CIDRS records MUST be DNSSEC signed. This is because unlike A and AAAA records,
 there is no expectation that the resulting traffic the querying client will
@@ -141,45 +186,39 @@ owner of the domain name.
 
 ## Suspiciously large IP address sets
 
-Servers SHOULD avoid claiming very short prefixes in CIDRS records. It is not
-expected that a single domain name is legitimately associated with a short
-prefix. Clients MAY choose to ignore claims of association by CIDRS records
-with prefixes shorter than a preconfigured minimum length per IP version.
 This version of the text does not suggest defined values for minimum prefix
-lengths, though as a reasonable rule of thumb, domain name owners SHOULD NOT
-have prefixes in CIDRS records that include multiple ASNs to avoid clients
-considering their prefixes to be too short.
-
-Note that associated IP addresses SHOULD be restricted to IP addresses which a
-server reasonably expects a client will need to interact with the functionality
-provided by the service which uses the domain name. For example, name owners
-SHOULD NOT create CIDRS records that include all IP ranges owned by a company
-for the company's primarily recognizable domain name (example-company.example.
-having a CIDRS record listing every IP address owned by Example Company would
-be inappropriate).
+lengths. Some reasonable considerations when defining associated prefixes include
+not having a single prefix span multiple ASNs and identifying if a single prefix
+is associated with functionality provided by services unrelated to this domain name.
+It can hardly be called an association if a short prefix that spans all media services
+provided by Example Company (which include video streaming, image hosting, and
+music library organiztion) is listed in the CIDRS records for the domain name
+very-specific-to.image-hosting.example-company.example.
 
 ## Large payload sizes
 
 It is expected that in most common use cases, CIDRS records will need more than
 one CIDR value, possibly many (balancing this against guidance given in
-{{complexity}}). Servers SHOULD truncate responses to avoid creating risk of
-effective DDoS attacks, even if the CIDRS record would fit in a single UDP
-packet. This means in effect that CIDRS records SHOULD NOT ever be sent using
-unencrypted DNS over UDP.
+{{prefixcounts}}). The more CIDRS records in a zone, the greater the amplification
+of client compute to server processing.
 
 # Operational Considerations
 
-## TTLs for SVCB and CIDRS records
+## TTLs
 
-Servers SHOULD NOT have a TTL value for SVCB records containing the "cidrs"
-key that are less than the TTL values for CIDRS records for the same domain
-name. This would cause the client to re-check for the presence of CIDRS records
-that it will still have cached.
-
-The TTL values of CIDRS records SHOULD NOT be any shorter than the expected
-lifetime of traffic flows of typical service usage. Doing so would encourage
-DNS stub resolvers and the processes calling DNS sutb resolver APIs to ignore
+Having short TTLs on CIDRS records can risk the records expiring before the
+expected usage time of the service(s) the domain name provides. This would encourage
+DNS stub resolvers and the processes calling DNS stub resolver APIs to ignore
 TTL values in favor of supporting performant user experiences.
+
+## Prefix lengths and counts {#prefixcounts}
+
+Having many prefixes associated with a domain name increases the payload size of
+a CIDRS response. However, reducing that size by sending an over-inclusive prefix
+risks claiming IP addresses are associated with the name when they are not, they
+just happen to fall under the common shorter prefix of the real values. Balancing
+this trade-off is something name owners need to be mindful of when managing
+name mappings.
 
 ## Complex messages {#complexity}
 
@@ -204,11 +243,6 @@ services they depend on but do not yet support this document.
 How to accomplish such a mapping is left to implementors as a non-standard
 mechanism. This is out of scope for this document, which only defines
 advertisement of IP addresses associated with a given name directly.
-
-
-# Security Considerations
-
-TODO Security
 
 
 # IANA Considerations
