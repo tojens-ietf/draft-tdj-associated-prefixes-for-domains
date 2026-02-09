@@ -96,6 +96,33 @@ When a server wishes to provide the associated IP prefixes for a given name, it
 SHOULD create CIDRS records for the prefixes associated with the name as well as
 add a "cidrs" key to a new or existing SVCB record.
 
+Note that this mechanism is primarily intended for use with protocols that
+do not issue a DNS query before establishing connectivity, or
+more specifically, do not use a domain name as part of connection
+establishment. This alerts clients that after an application queries
+this domain name, they may observe traffic going to these
+prefixes in addition to the A and AAAA addresses.
+
+Protocols that do use a domain name to establish
+connectivity and verifiably prove association with the domain name
+do not need to be declared in CIDRS records. This is because
+the existing use of A and AAAA queries already suffice to inform
+the client of expected endpoint communication. A common example
+of this is the typical flow to connect to a web page over TLS, which 
+only involves connecting to IP addresses from A and AAAA records
+whose association with the domain name can be verified during
+the TLS handshake.
+
+Therefore, CIDRS records SHOULD NOT be used to replace 
+A and AAAA address declarations. However, they MAY be used to
+declare prefixes that contain the addresses included in A or AAAA
+records if the service wishes to communicate more granular 
+information about the expected communication patterns with
+the service. For example, a CIDRS record with a port range of
+443-443 for the IP addresses in the A and AAAA records may 
+be used to indicate that traffic to services using this domain name
+are only ever expected to use HTTPS.
+
 Servers SHOULD avoid claiming very short prefixes in CIDRS records. It is not
 expected that a single domain name is legitimately associated with a short
 prefix. Associated IP addresses SHOULD be restricted to IP addresses a
