@@ -75,10 +75,14 @@ TBD
 ## Client Behavior
 
 When a client wishes to discover the IP prefixes that are associated with a
-given domain name, it SHOULD issue a SVCB query for the domain name (which it
-may already be doing for other reasons). If the "cidrs" key is present, then
+trusted domain name, it SHOULD issue a SVCB query for the domain name (which it
+may already be doing for other reasons). If the "cidrs" key is present and the
+client is pre-configured to trust claims in the domain name's zone, then
 it SHOULD issue another query of type CIDRS to retrieve the associated IP
-prefixes.
+prefixes. It MUST NOT proceed with this process if it has not been pre-configured
+to trust CIDRS results from this domain name. This is to prevent unverifiable claims
+made by arbitrary domain name owners to unrelated services. In other words, this
+protocol MUST NOT be a default behavior for stub resolvers querying arbitrary names.
 
 Clients MAY choose to ignore claims of association by CIDRS records
 with prefixes shorter than a preconfigured minimum length per IP version to
