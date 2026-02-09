@@ -206,6 +206,16 @@ provided by Example Company (which include video streaming, image hosting, and
 music library organiztion) is listed in the CIDRS records for the domain name
 very-specific-to.image-hosting.example-company.example.
 
+When the domain name is used with a service that is hosted by a CDN, and the
+name owner does not have dedicated IP address space by the CDN, CIDRS records
+would need to either be very inclusive across much of the CDN's IP space or need
+to be rapidly updated whenever the routing for the CDN customer's domain name
+is updated. Neither approach is a good fit for this approach because there really
+are not any IP addresses associated with the domain name, just ephemeral addresses
+used to co-host many other things. Service operators should carefully consider
+whether CIDRS records are the correct approach for their use case if they cannot
+limit their associated IP addresses to a reasonably long prefix.
+
 ## Large payload sizes
 
 It is expected that in most common use cases, CIDRS records will need more than
