@@ -194,8 +194,48 @@ CIDRS RR data on the wire uses the following format:
 
 ## Zone file format
 
-TODO
+```zone
+$ORIGIN example.com.
+$TTL 86400
+@ IN  SOA dns1.example.com. hostmaster.example.com. (
+      2001062501 ; serial
+      21600      ; refresh after 6 hours
+      3600       ; retry after 1 hour
+      604800     ; expire after 1 week
+      86400 )    ; minimum TTL of 1 day
 
+
+  IN  NS  dns1.example.com.
+  IN  NS  dns2.example.com.
+
+
+  IN  MX  10  mail.example.com.
+  IN  MX  20  mail2.example.com.
+
+
+stun1     IN  CIDRS  86400  192.0.2.1/32      3478   3478   6
+stun2     IN  CIDRS  86400  192.0.2.2/32      3478   3478  17
+stun3     IN  CIDRS  86400  2001:db8::3/128   3478   3478   6
+stun4     IN  CIDRS  86400  2001:db8::4/128   3478   3478  17
+dot4      IN  CIDRS  86400  192.0.2.4/32       853    853   6
+doh4      IN  CIDRS  86400  192.0.2.4/32       443    443   6
+doq4      IN  CIDRS  86400  192.0.2.4/32       853    853  17
+dot6      IN  CIDRS  86400  2001:db8::6/128    853    853   6
+doh6      IN  CIDRS  86400  2001:db8::6/128    443    443   6
+doq6      IN  CIDRS  86400  2001:db8::6/128    853    853  17
+telemetry IN  CIDRS  86400  192.0.2.128/25   19300  19400  6
+telemetry IN  CIDRS  86400  2001:db8:1::/64  19300  19400  17
+
+dns1      IN  A  192.0.2.10
+dns2      IN  A  192.0.2.11
+
+server1   IN  A     192.0.2.12
+server1   IN  AAAA  2001:db8::7
+server2   IN  A     192.0.2.13
+server8   IN  AAAA  2001:db8::8
+
+www       IN  CNAME  server1
+```
 
 ## Justification for new RR type
 
